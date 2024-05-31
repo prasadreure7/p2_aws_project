@@ -1,0 +1,40 @@
+pipeline { 
+    environment {
+        revhire_job_service= '471112742532.dkr.ecr.us-east-1.amazonaws.com/revhire-job-service-repo:latest'
+    }
+    agent any 
+    stages {
+        stage('checkout') {
+            steps {
+                git branch: 'main',
+                url: 'https://github.com/Abinashkhuntia/revhire-job-service.git'
+            }
+        }
+        
+        stage('Building the User Service image') {
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credential', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        echo "Building the User Service"
+                        sh "docker build -t ${revhire_job_service} ."
+                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 471112742532.dkr.ecr.us-east-1.amazonaws.com"
+                        sh "docker push ${revhire_job_service}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploying the Job Service') {
+            steps {
+                script {
+                    echo "Deploying the User Service"
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credential', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh "aws eks --region us-east-1 update-kubeconfig --name my-cluster"
+                        sh "kubectl apply -f manifests/deployment.yaml"
+
+                    }
+                }
+            }
+        }
+    } 
+}
