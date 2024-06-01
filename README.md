@@ -1,1 +1,0 @@
-# p2_aws_project
